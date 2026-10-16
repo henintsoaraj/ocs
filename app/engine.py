@@ -37,9 +37,28 @@ def reserve(conn, account_id, session_id, amount, ttl_seconds=60):
 
         conn.execute(
             """
-            INSERT INTO reservations (account_id, session_id, a0mount, expires_at)
+            INSERT INTO reservations (account_id, session_id, amount, expires_at)
             VALUES (%s, %s, %s, now() + make_interval(secs => %s))
             """,
             (account_id, session_id, amount, ttl_seconds),
         )
         return OK
+
+# def reserve_naive(conn, account_id, session_id, amount):
+#     with conn.transaction():
+#         # 1. Lire
+#         balance, reserved = conn.execute(
+#             "SELECT balance, reserved FROM accounts WHERE id = %s",
+#             (account_id,),
+#         ).fetchone()
+
+#         # 2. Vérifier (en Python, pas dans la base)
+#         if balance - reserved < amount:
+#             return CREDIT_LIMIT
+
+#         # 3. Écrire la nouvelle valeur calculée en Python
+#         conn.execute(
+#             "UPDATE accounts SET reserved = %s WHERE id = %s",
+#             (reserved + amount, account_id),
+#         )
+#         # return OK
