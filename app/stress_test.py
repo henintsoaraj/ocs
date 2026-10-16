@@ -2,7 +2,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from collections import Counter
 import psycopg
-from engine import reserve, reserve_naive
+from engine import reserve
 
 URL = os.environ["DATABASE_URL"]
 
