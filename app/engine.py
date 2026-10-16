@@ -6,6 +6,15 @@ UNKNOWN_ACCOUNT = "UNKNOWN_ACCOUNT"
 
 def reserve(conn, account_id, session_id, amount, ttl_seconds=60):
     with conn.transaction():
+        already = conn.execute(
+            """
+            SELECT 1 FROM reservations WHERE session_id = %s
+            """,
+            (session_id,),
+        ).fetchone()
+        if already:
+            return OK
+
         cur = conn.execute(
             """
             UPDATE accounts
@@ -28,7 +37,7 @@ def reserve(conn, account_id, session_id, amount, ttl_seconds=60):
 
         conn.execute(
             """
-            INSERT INTO reservations (account_id, session_id, amount, expires_at)
+            INSERT INTO reservations (account_id, session_id, a0mount, expires_at)
             VALUES (%s, %s, %s, now() + make_interval(secs => %s))
             """,
             (account_id, session_id, amount, ttl_seconds),
