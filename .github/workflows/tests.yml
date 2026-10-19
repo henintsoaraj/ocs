@@ -1,0 +1,44 @@
+name: tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Une vraie base PostgreSQL, démarrée le temps du job
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ocs
+          POSTGRES_PASSWORD: ocs
+          POSTGRES_DB: ocs
+        ports:
+          - 5432:5432
+        # Attendre que la base soit vraiment prête avant de continuer
+        options: >-
+          --health-cmd "pg_isready -U ocs"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://ocs:ocs@localhost:5432/ocs
+      PGPASSWORD: ocs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Créer le schéma
+        run: psql -h localhost -U ocs -d ocs -f db/schema.sql
+
+      - name: Lancer les tests
+        run: pytest -v
