@@ -6,7 +6,7 @@ import psycopg
 
 from engine import (
     reserve, terminate,expire_reservations,
-    OK, CREDIT_LIMIT, UNKNOWN_ACCOUNT, UNKNOWN_SESSION,
+    OK, CREDIT_LIMIT, UNKNOWN_ACCOUNT, UNKNOWN_SESSION, SESSION_EXPIRED
 )
 
 
@@ -56,12 +56,16 @@ def test_terminate(conn, account):
 
 
 def test_terminate_twice(conn, account):
-    # La 2e fin d'appel ne trouve plus la réservation : rien n'est débité
+    # Une fin d'appel retransmise : reconnue grâce au CDR,
+    # même réponse (OK), rien de plus prélevé, un seul ticket
     session = f"s-{account}"
     reserve(conn, account, session, 60)
     terminate(conn, session, 40)
-    assert terminate(conn, session, 40) == UNKNOWN_SESSION
+    assert terminate(conn, session, 40) == OK
     assert state(conn, account) == (60, 0)
+    assert conn.execute(
+        "SELECT count(*) FROM cdrs WHERE session_id = %s", (session,)
+    ).fetchone()[0] == 1
 
 
 def test_terminate_overuse(conn, account):
@@ -102,6 +106,20 @@ def test_expire_reservations(conn, account):
     # Seule la réservation expirée est libérée, et rien n'est prélevé
     assert state(conn, account) == (100, 20)
 
-    # Une fin d'appel tardive pour la réservation expirée ne trouve plus rien
-    assert terminate(conn, f"s-{account}-old", 30) == UNKNOWN_SESSION
+    # Une fin d'appel tardive est reconnue grâce au CDR EXPIRED
+    assert terminate(conn, f"s-{account}-old", 30) == SESSION_EXPIRED   # ← avant : UNKNOWN_SESSION
     assert state(conn, account) == (100, 20)
+
+def test_expire_writes_cdr(conn, account):
+    session = f"s-{account}"
+    reserve(conn, account, session, 60, ttl_seconds=-1)
+    expire_reservations(conn)
+
+    assert conn.execute(
+        "SELECT reserved, used, charged, status FROM cdrs WHERE session_id = %s",
+        (session,),
+    ).fetchone() == (60, None, 0, "EXPIRED")
+
+    # La fin d'appel arrive après l'expiration
+    assert terminate(conn, session, 40) == SESSION_EXPIRED
+    assert state(conn, account) == (100, 0)
