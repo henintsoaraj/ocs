@@ -5,7 +5,7 @@ from collections import Counter
 import psycopg
 
 from engine import (
-    reserve, terminate,
+    reserve, terminate,expire_reservations,
     OK, CREDIT_LIMIT, UNKNOWN_ACCOUNT, UNKNOWN_SESSION,
 )
 
@@ -90,3 +90,18 @@ def test_concurrent_reservations(conn, account):
 
     assert results == {OK: 10, CREDIT_LIMIT: 90}
     assert state(conn, account) == (100, 100)
+
+def test_expire_reservations(conn, account):
+    # Une réservation déjà expirée (TTL négatif) et une encore valide
+    reserve(conn, account, f"s-{account}-old", 30, ttl_seconds=-1)
+    reserve(conn, account, f"s-{account}-new", 20)
+    assert state(conn, account) == (100, 50)
+
+    expire_reservations(conn)
+
+    # Seule la réservation expirée est libérée, et rien n'est prélevé
+    assert state(conn, account) == (100, 20)
+
+    # Une fin d'appel tardive pour la réservation expirée ne trouve plus rien
+    assert terminate(conn, f"s-{account}-old", 30) == UNKNOWN_SESSION
+    assert state(conn, account) == (100, 20)

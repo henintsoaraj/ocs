@@ -77,6 +77,26 @@ def terminate(conn, session_id, used):
         )
         return OK
 
+def expire_reservations(conn):
+    """Libère les réservations expirées, sans rien prélever.
+    Renvoie le nombre de réservations libérées."""
+    with conn.transaction():
+        rows = conn.execute(
+            """
+            DELETE FROM reservations
+            WHERE expires_at < now()
+            RETURNING account_id, amount
+            """
+        ).fetchall()
+
+        for account_id, amount in rows:
+            conn.execute(
+                "UPDATE accounts SET reserved = reserved - %s WHERE id = %s",
+                (amount, account_id),
+            )
+
+        return len(rows)
+
 # def reserve_naive(conn, account_id, session_id, amount):
 #     with conn.transaction():
 #         # 1. Lire
