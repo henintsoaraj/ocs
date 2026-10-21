@@ -25,7 +25,6 @@ jobs:
 
     env:
       TEST_DATABASE_URL: postgresql://ocs:ocs@localhost:5432/ocs_test
-      PGPASSWORD: ocs
 
     steps:
       - uses: actions/checkout@v4
@@ -37,8 +36,8 @@ jobs:
       - name: Installer les dépendances
         run: pip install -r requirements.txt
 
-      - name: Créer le schéma
-        run: psql -h localhost -U ocs -d ocs_test -f db/schema.sql
+      - name: Appliquer les migrations
+        run: python app/migrate.py "$TEST_DATABASE_URL"
 
       - name: Lancer les tests
         run: pytest -v
