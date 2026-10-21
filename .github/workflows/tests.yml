@@ -13,7 +13,7 @@ jobs:
         env:
           POSTGRES_USER: ocs
           POSTGRES_PASSWORD: ocs
-          POSTGRES_DB: ocs
+          POSTGRES_DB: ocs_test
         ports:
           - 5432:5432
         # Attendre que la base soit vraiment prête avant de continuer
@@ -24,7 +24,7 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://ocs:ocs@localhost:5432/ocs
+      TEST_DATABASE_URL: postgresql://ocs:ocs@localhost:5432/ocs_test
       PGPASSWORD: ocs
 
     steps:
@@ -38,7 +38,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Créer le schéma
-        run: psql -h localhost -U ocs -d ocs -f db/schema.sql
+        run: psql -h localhost -U ocs -d ocs_test -f db/schema.sql
 
       - name: Lancer les tests
         run: pytest -v
