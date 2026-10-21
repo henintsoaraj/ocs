@@ -4,7 +4,7 @@ from collections import Counter
 import psycopg
 from engine import reserve
 
-URL = os.environ["DATABASE_URL"]
+URL = os.environ["TEST_DATABASE_URL"]
 
 # 1. Un compte neuf avec 1 € (100 centimes)
 with psycopg.connect(URL) as conn:
