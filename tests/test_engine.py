@@ -83,7 +83,7 @@ def test_concurrent_reservations(conn, account):
     # exactement 10 acceptées, jamais un centime de trop
     conn.commit()   # rendre le compte visible aux autres connexions
 
-    url = os.environ["DATABASE_URL"]
+    url = os.environ["TEST_DATABASE_URL"]
 
     def one(i):
         with psycopg.connect(url) as c:
@@ -123,3 +123,14 @@ def test_expire_writes_cdr(conn, account):
     # La fin d'appel arrive après l'expiration
     assert terminate(conn, session, 40) == SESSION_EXPIRED
     assert state(conn, account) == (100, 0)
+
+def test_terminate_writes_cdr(conn, account):
+    # Un dépassement (réserve 30, annonce 50) : le CDR garde
+    # ce qui a été annoncé (used) ET ce qui a été prélevé (charged)
+    session = f"s-{account}"
+    reserve(conn, account, session, 30)
+    terminate(conn, session, 50)
+    assert conn.execute(
+        "SELECT reserved, used, charged, status FROM cdrs WHERE session_id = %s",
+        (session,),
+    ).fetchone() == (30, 50, 30, "COMPLETED")
